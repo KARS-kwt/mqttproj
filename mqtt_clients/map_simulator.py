@@ -21,6 +21,19 @@ def create_grid(rows, columns):
     start_button_tt = Pmw.Balloon(root) 
     start_button_tt.bind(start_button,'Click here to start the simulation')
 
+def set_flag_position(team_id, r, c):
+
+    label = Label(root, height=100, width=100, relief=RAISED, borderwidth=2, image=blank)
+    label.grid(row=r, column=c)
+    if team_id == 0:
+        label.config(image=red_flag, height=100, width=100)
+    else:
+        label.config(image=blue_flag, height=100, width=100)
+    
+    # Add tooltip for flag
+    flag_tt = Pmw.Balloon(root)
+    flag_tt.bind(label, f"Team {team_id} - Flag")
+
 def set_rover_position(team_id, rover_id, r, c):
 
     # Clear the previous position
@@ -108,8 +121,10 @@ if __name__ == "__main__":
     # Initialize rover parameters
     rover = [[None for _ in range(2)] for _ in range(config.NUM_TEAMS)]
     blank = PhotoImage()
-    red_image = ImageTk.PhotoImage(Image.open("mqtt_clients/images/redrobot.gif").resize((100, 100)))
-    blue_image = ImageTk.PhotoImage(Image.open("mqtt_clients/images/bluerobot.gif").resize((100, 100)))
+    red_image = ImageTk.PhotoImage(Image.open("mqtt_clients/images/redrobot.png").resize((100, 100)))
+    blue_image = ImageTk.PhotoImage(Image.open("mqtt_clients/images/bluerobot.png").resize((100, 100)))
+    red_flag = ImageTk.PhotoImage(Image.open("mqtt_clients/images/redflag.png").resize((100, 100)))
+    blue_flag = ImageTk.PhotoImage(Image.open("mqtt_clients/images/blueflag.png").resize((100, 100)))
 
     # Create the grid
     create_grid(config.GRID_ROWS, config.GRID_COLS)
@@ -119,6 +134,10 @@ if __name__ == "__main__":
     set_rover_position(0, 1, 0, config.GRID_COLS-1)
     set_rover_position(1, 0, config.GRID_ROWS-1, 0)
     set_rover_position(1, 1, config.GRID_ROWS-1, config.GRID_COLS-1)
+
+    # Initialize flag positions on grid
+    set_flag_position(0, 0, 5)
+    set_flag_position(1, config.GRID_ROWS-1, 5)
 
     # Start the main event loop
     root.mainloop()
