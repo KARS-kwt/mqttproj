@@ -33,16 +33,23 @@ def get_neighbors(node, grid, obstacles):
   return neighbors
 
 # A* algorithm
-def a_star(start, goal, grid, obstacles):
+def a_star(rows, cols, start, goal, obstacles):
+
+  # Create the grid of nodes from the view of the rover
+  grid = [[Node(r, c) for c in range(cols)] for r in range(rows)]
+  startNode =  grid[start.r][start.c]
+  endNode = grid[goal.r][goal.c]
+
+  # Start the A* algorithm
   open_set = []
-  heapq.heappush(open_set, start)
-  start.cost = 0
-  start.heuristic = euclidean_distance(start, goal)
-  start.f_score = start.heuristic
+  heapq.heappush(open_set, startNode)
+  startNode.cost = 0
+  startNode.heuristic = euclidean_distance(startNode, endNode)
+  startNode.f_score = startNode.heuristic
 
   while open_set:
       current = heapq.heappop(open_set)
-      if current == goal:
+      if current == endNode:
           path = []
           while current:
               path.append((current.r, current.c))
@@ -58,7 +65,7 @@ def a_star(start, goal, grid, obstacles):
           if tentative_g_score < neighbor.cost:
               neighbor.parent = current
               neighbor.cost = tentative_g_score
-              neighbor.heuristic = euclidean_distance(neighbor, goal)
+              neighbor.heuristic = euclidean_distance(neighbor, endNode)
               neighbor.f_score = neighbor.cost + neighbor.heuristic
               if neighbor not in open_set:
                   heapq.heappush(open_set, neighbor)

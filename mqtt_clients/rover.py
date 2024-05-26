@@ -1,16 +1,20 @@
 # import required packages 
-import json 
+import json
 import config
 
 class Rover:  
+
+    # Rover's team ID
+    team_id = 0
+    group_id = 0
 
     # Rover's view of the environment
     team_flag_in_base = True                               
     opp_flag_in_base =  [True for _ in range(config.NUM_TEAMS - 1)]
 
     # Rover's grid position
-    x_pos = 0
-    y_pos = 0
+    r = 0
+    c = 0
 
     # Rover's orientation (in degrees)
     orientation = 0
@@ -23,11 +27,12 @@ class Rover:
     arm_status = "retracted"
     
     # Constructor
-    def __init__(self, team_id, group_id, x, y):
-        self.team_id = team_id,
-        self.group_id = group_id,
-        self.x = x
-        self.y = y
+    def __init__(self, team_id, group_id, r, c, orientation):
+        self.team_id = team_id
+        self.group_id = group_id
+        self.r = r
+        self.c = c
+        self.orientation = orientation
 
     # Convert to JSON
     def to_json(self):

@@ -1,9 +1,11 @@
+from calendar import c
 from tkinter import *
 import Pmw
 import config
 import random
 from PIL import Image,ImageTk
 from map_pathfinder import Node, a_star
+from rover import Rover
 
 def draw_grid(rows, columns):
 
@@ -20,12 +22,6 @@ def draw_grid(rows, columns):
     # Add tooltip for start button
     start_button_tt = Pmw.Balloon(root) 
     start_button_tt.bind(start_button,'Click here to start the simulation')
-
-    # Add a textbox showing log of events on right of the grid
-    log_text = Text(root, height=30, width=50, bg="black", fg="white", font=("Arial", 16))
-    log_text.grid(row=0, column=columns+1, rowspan=rows, padx=50, pady=10, sticky=N+S+E+W)
-    log_text.insert(END, "Event Log:\n")
-
 
 def generate_obstacles(num_rand_obstacles=10):
 
@@ -62,55 +58,64 @@ def set_flag_position(team_id, r, c):
     label = Label(root, height=ch, width=cw, relief=RAISED, borderwidth=2, image=blank)
     label.grid(row=r, column=c)
     if team_id == 0:
-        label.config(image=red_flag, height=ch, width=cw)
+        label.config(image=red_flag_icon, height=ch, width=cw)
     else:
-        label.config(image=blue_flag, height=ch, width=cw)
+        label.config(image=blue_flag_icon, height=ch, width=cw)
     
     # Add tooltip for flag
     flag_tt = Pmw.Balloon(root)
     flag_tt.bind(label, f"Team {team_id} - Flag")
 
-def set_rover_position(team_id, rover_id, r, c):
+def update_rover_position(rover, new_pos, is_start=False):
 
-    # Clear the previous position
-    if rover[team_id][rover_id] is not None:
+    if rover is None:
+        return
+
+    # Clear the previous position if not the start position
+    if not is_start:
         label = Label(root, height=ch, width=cw, relief=RAISED, borderwidth=2, image=blank)
-        label.grid(row=rover[team_id][rover_id].get("r"), column=rover[team_id][rover_id].get("c"))
-        rover[team_id][rover_id] = None
+        label.grid(row=rover.r, column=rover.c)
 
     # Set the new position
-    rover[team_id][rover_id] = {"r": r, "c": c}
+    rover.r = new_pos.r
+    rover.c = new_pos.c
     label = Label(root, height=ch, width=cw, relief=RAISED, borderwidth=2, image=blank)
-    label.grid(row=r, column=c)
-    if team_id == 0:
+    label.grid(row=rover.r, column=rover.c)
+    if rover.team_id == 0:
         label.config(image=red_image, height=ch, width=cw)
     else:
         label.config(image=blue_image, height=ch, width=cw)
     
     # Add tooltip for rover
     rover_tt = Pmw.Balloon(root)
-    rover_tt.bind(label, f"Team {team_id} - Rover {rover_id}")
+    rover_tt.bind(label, f"Team {rover.team_id} - Rover {rover.group_id}")
 
-def move_rover(team_id, rover_id):
-    r = rover[team_id][rover_id].get("r")
-    c = rover[team_id][rover_id].get("c")
+# Function to move the rover to the flag using A* algorithm
+def move_rover(rover):
+    
+    if rover.team_id == 0:
+        goal = Node(rows-1, int(config.GRID_COLS / 2)) 
+    else:
+        goal = Node(0, int(config.GRID_COLS / 2))
+    start = Node(rover.r, rover.c)
 
-    # Apply A* algorithm to reach the flag
-    grid = [[Node(r, c) for c in range(cols)] for r in range(rows)]
-    start = grid[r][c]
-    goal = grid[rows-1][int(config.GRID_COLS / 2)]
-    path = a_star(start, goal, grid, obstacles)
-    if path:
+    path = a_star(rows, cols, start, goal, obstacles)
+    
+    # Update the rover position by moving one step along the path
+    if path and len(path) > 1:
         r, c = path[1]    
-    set_rover_position(team_id, rover_id, r, c)
+        update_rover_position(rover, Node(r,c))
 
 def start_simulation():
 
     # Move the rovers synchronously
-    move_rover(0, 0)
-    #move_rover(0, 1)
-    #move_rover(1, 0)
-    #move_rover(1, 1)
+    move_rover(rover[0][0])
+    #move_rover(rover[0][1])
+    move_rover(rover[1][0])
+    #move_rover(rover[1][1])
+
+    # Add a log entry
+    log_text.insert(END, "Rovers moved\n")
 
     # Run the simulation again after 1 second
     simulate = root.after(1000, start_simulation)
@@ -143,26 +148,34 @@ if __name__ == "__main__":
     cw = 50                  # width of each cell in pixels
 
     # Initialize rover parameters
-    rover = [[None for _ in range(2)] for _ in range(config.NUM_TEAMS)]
     blank = PhotoImage()
     red_image = ImageTk.PhotoImage(Image.open("mqtt_clients/images/redrobot.png").resize((ch, cw)))
     blue_image = ImageTk.PhotoImage(Image.open("mqtt_clients/images/bluerobot.png").resize((ch,cw)))
-    red_flag = ImageTk.PhotoImage(Image.open("mqtt_clients/images/redflag.png").resize((ch, cw)))
-    blue_flag = ImageTk.PhotoImage(Image.open("mqtt_clients/images/blueflag.png").resize((ch, cw)))
+    red_flag_icon = ImageTk.PhotoImage(Image.open("mqtt_clients/images/redflag.png").resize((ch, cw)))
+    blue_flag_icon = ImageTk.PhotoImage(Image.open("mqtt_clients/images/blueflag.png").resize((ch, cw)))
+    red_flag = Node(0, int(cols / 2)) 
+    blue_flag = Node(rows-1, int(cols / 2))
 
     # Draw the grid
     draw_grid(rows, cols)
-    obstacles = generate_obstacles(20)
+    obstacles = generate_obstacles(90)
 
     # Initialize team positions on grid
-    set_rover_position(0, 0, 0, 0)
-    set_rover_position(0, 1, 0, config.GRID_COLS-1)
-    set_rover_position(1, 0, config.GRID_ROWS-1, 0)
-    set_rover_position(1, 1, config.GRID_ROWS-1, config.GRID_COLS-1)
+    rover = [[None for _ in range(2)] for _ in range(config.NUM_TEAMS)]
+    for i in range(config.NUM_TEAMS):
+        for j in range(2):
+            rover[i][j] = Rover(i, j, i*(rows-1), j*(cols-1), 0)
+            start_pos = Node(i*(rows-1), j*(cols-1))
+            update_rover_position(rover[i][j], start_pos, True)
 
     # Initialize flag positions on grid (half way between the groups)
-    set_flag_position(0, 0, int(config.GRID_COLS / 2))
-    set_flag_position(1, config.GRID_ROWS-1, int(config.GRID_COLS / 2))
+    set_flag_position(0, 0, int(cols / 2))
+    set_flag_position(1, rows-1, int(cols / 2))
+
+    # Add a textbox showing log of events on right of the grid
+    log_text = Text(root, height=30, width=50, bg="black", fg="white", font=("Arial", 16))
+    log_text.grid(row=0, column=cols+1, rowspan=rows, padx=50, pady=10, sticky=N+S+E+W)
+    log_text.insert(END, "Event Log:\n")
 
     # Start the main event loop
     root.mainloop()
