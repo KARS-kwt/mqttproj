@@ -38,4 +38,3 @@ class Rover:
     def from_json(json_str):
         json_dict = json.loads(json_str)
         return Rover(json_dict['x'], json_dict['y'])
-  
