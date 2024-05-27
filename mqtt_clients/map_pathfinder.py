@@ -1,5 +1,14 @@
 import heapq
 import math
+from enum import Enum
+
+class Occupant(Enum):
+    UNKNOWN = -1
+    EMPTY = 0
+    OBSTACLE = 1
+    FLAG = 2
+    ROVER = 3
+    BUTTON = 4
 
 class Node:
     def __init__(self, r, c):
@@ -9,10 +18,64 @@ class Node:
       self.heuristic = 0            # h cost (distance from end node - for Dijsktra's algorithm, h = 0)
       self.f_score = float('inf')   # f = g + h
       self.parent = None
-      self.occupant = None          # None = empty, 0 = start, 1 = end, 2 = obstacle, 3 = flag, 4 = rover
+      self.occupant = Occupant.UNKNOWN
+      self.visited = False
 
     def __lt__(self, other):
       return self.f_score < other.f_score
+    
+    def is_occupied(self):
+      return self.occupant != Occupant.EMPTY
+
+# Used to update rover's view of the environment using the real grid
+def scan(rover, grid):
+
+  r, c = rover.r, rover.c
+
+  # Scan the grid by looking at all cells in the same row and/or column as the rover (cannot see beyond obstacles)
+  for nr in range(r, len(grid)): # DOWN         
+    rover.update_occupant(nr, c, grid[nr][c].occupant)
+    if nr == r: # Skip the current cell
+      continue   
+    if grid[nr][c].occupant != Occupant.EMPTY:  
+      break
+  for nr in range(r, -1, -1): # UP
+    rover.update_occupant(nr, c, grid[nr][c].occupant)
+    if nr == r:
+      continue   
+    if grid[nr][c].occupant != Occupant.EMPTY:  
+      break
+  for nc in range(c, len(grid[0])): # RIGHT
+    if nc == c:
+      continue 
+    rover.update_occupant(r, nc, grid[r][nc].occupant)
+    if grid[r][nc].occupant != Occupant.EMPTY:
+      break
+  for nc in range(c, -1, -1): # LEFT
+    if nc == c:
+      continue 
+    rover.update_occupant(r, nc, grid[r][nc].occupant)
+    if grid[r][nc].occupant != Occupant.EMPTY:
+      break
+
+  # Scan the grid by looking at all cells in the diagnoal direction from the rover (except current cell)
+  for i in range(1, len(grid)):
+    if r + i < len(grid) and c + i < len(grid[0]):
+      rover.update_occupant(r + i, c + i, grid[r + i][c + i].occupant)
+      if grid[r + i][c + i].occupant != Occupant.EMPTY:
+        break
+    if r + i < len(grid) and c - i >= 0:
+      rover.update_occupant(r + i, c - i, grid[r + i][c - i].occupant)
+      if grid[r + i][c - i].occupant != Occupant.EMPTY:
+        break
+    if r - i >= 0 and c + i < len(grid[0]):
+      rover.update_occupant(r - i, c + i, grid[r - i][c + i].occupant)
+      if grid[r - i][c + i].occupant != Occupant.EMPTY:
+        break
+    if r - i >= 0 and c - i >= 0:
+      rover.update_occupant(r - i, c - i, grid[r - i][c - i].occupant)
+      if grid[r - i][c - i].occupant != Occupant.EMPTY:
+        break
 
 # Manhattan distance is the sum of the horizontal and vertical distances between two points
 def manhattan_distance(start, end):
@@ -32,10 +95,10 @@ def get_neighbors(node, grid, obstacles):
           neighbors.append(grid[nr][nc])
   return neighbors
 
-# A* algorithm
+# A* algorithm - used once the destination has been determined
 def a_star(rows, cols, start, goal, obstacles):
 
-  # Create the grid of nodes from the view of the rover
+  # Create a virtual grid of nodes to run the algorithm on (based on the rover's gridview and obstacles)
   grid = [[Node(r, c) for c in range(cols)] for r in range(rows)]
   startNode =  grid[start.r][start.c]
   endNode = grid[goal.r][goal.c]
