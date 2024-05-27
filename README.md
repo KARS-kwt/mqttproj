@@ -3,15 +3,14 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 ## Overview
-A repurposed version of the `MQTT-PWN project <https://github.com/akamai-threat-research/mqtt-pwn>` 
+This project is composed of two parts. The first is a set of MQTT clients with a simulator designed
+specifically for simulating the environment of the KARS Summer 2024 physical CTF competition. The second part is a repurposed version of the `MQTT-PWN project <https://github.com/akamai-threat-research/mqtt-pwn>` 
 that demonstrates vulnerabilities and the corresponding security practices of MQTT
-communication. Designed to be tailored for the KARS summer lab.
-
-
+communication. 
 
 ## Installation
-
-
+The following installation and configuration instructions are for a Linux-based
+system. The project has been tested on WSL (Ubuntu kernel) and Raspberry Pi OS.
 
 1. Clone the repository:
 
@@ -24,6 +23,11 @@ communication. Designed to be tailored for the KARS summer lab.
     ```bash
     pip install -r requirements.txt
     ```
+
+## Configuration
+
+(Under Development)
+
 ## Usage
 
 (Under Development)

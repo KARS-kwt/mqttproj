@@ -17,22 +17,16 @@ class ArmStatus(Enum):
 
 class Rover:  
 
+    #TODO: Refactor rover variables into constructor
+
     # Rover's team ID
-    team_id = 0
-    group_id = 0
+    team_id = -1
+    group_id = -1
 
     # Rover's view of the environment 
     mode = Mode.HEADING_TO_FLAG        
     team_flag_in_base = True                               
     opp_flag_in_base =  [True for _ in range(config.NUM_TEAMS - 1)]
-
-    # Rover's grid
-    my_grid = [[Node(r, c) for c in range(config.GRID_COLS)] for r in range(config.GRID_ROWS)]
-    my_obstacles = set()
-
-    # Rover's grid position
-    r = 0
-    c = 0
 
     # Rover's orientation (in degrees)
     orientation = 0
@@ -51,7 +45,11 @@ class Rover:
         self.r = r
         self.c = c
         self.orientation = orientation
+
+        # Initialize the rover's gridview with unknown occupants
+        self.my_grid = [[Node(r, c) for c in range(config.GRID_COLS)] for r in range(config.GRID_ROWS)]
         self.my_grid[r][c].visited = True
+        self.my_obstacles = set()
     
     def update_occupant(self, r, c, type):
         self.my_grid[r][c].occupant = type
@@ -61,11 +59,13 @@ class Rover:
     def get_all_obstacles(self):
         return self.my_obstacles
 
+    # Print the grid with equal spacing
     def print_grid(self):
         for row in self.my_grid:
-            for node in row:
-                print(node.occupant.value, end=' ')
+            for cell in row:
+                print(f"{cell.occupant.value:3}", end="")
             print()
+        print()
 
     # Convert to JSON
     def to_json(self):

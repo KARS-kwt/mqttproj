@@ -101,15 +101,27 @@ def move_rover(rover):
 
     # Assuming the rover knows the location of the flag
     if rover.mode == Mode.HEADING_TO_FLAG:
-        goal = Node(rows-1, int(cols / 2)) 
+        goal = Node((1-rover.team_id) * (rows-1), int(cols / 2)) 
         path = a_star(rows, cols, start, goal, obstacles)
 
     # Scan the environment for an unexplored area
     if rover.mode == Mode.EXPLORING:
+        
         scan(rover, grid)
         my_grid = rover.my_grid
+        #rover.print_grid()
 
-        # TODO: Need a better way to explore (frontier-based exploration?)
+        # Check number of grids with discovered flags
+        # TODO: There has to be a better way to do this
+        flags = 0
+        for row in my_grid:
+            for cell in row:
+                if cell.occupant == Occupant.FLAG:
+                    flags += 1
+        if flags == 2:
+            rover.print_grid()
+            log_text.insert(END, f"Team {rover.team_id} - discovered opponent's flag!\n")
+
         # Set the goal to be the farthest unexplored cell
         max_distance = 0
         goal = None
@@ -121,28 +133,32 @@ def move_rover(rover):
                         max_distance = distance
                         goal = cell
 
-        # Explore frontier
+        # FInd a path to that frontier
         path = a_star(rows, cols, start, goal, rover.get_all_obstacles())
     
     # Update the rover position by moving one step along the path
     if path and len(path) > 1:
         r, c = path[1]    
-        update_rover_position(rover, Node(r,c))
-        # Rover has crashed!
         if grid[r][c].occupant == Occupant.OBSTACLE:
+            # Rover has crashed!
             log_text.insert(END, f"Team {rover.team_id} - Rover {rover.group_id} has crashed into an obstacle\n")
+        else:
+           update_rover_position(rover, Node(r,c))
 
 def start_simulation():
 
-    # Move the rovers synchronously towards their destination
-    rover[0][0].mode = Mode.EXPLORING
-    move_rover(rover[0][0])
-    #move_rover(rover[0][1])
-    #move_rover(rover[1][0])
-    #move_rover(rover[1][1])
+    for i in range(config.NUM_TEAMS):
+        for j in range(2):
+            rover[i][j].mode = Mode.EXPLORING
 
-    # Run the simulation again after 1 second
-    simulate = root.after(1000, start_simulation)
+    # Move the rovers synchronously towards their destination
+    move_rover(rover[0][0])
+    move_rover(rover[0][1])
+    move_rover(rover[1][0])
+    move_rover(rover[1][1])
+
+    # Run the simulation again after 1 timestep
+    simulate = root.after(config.TIMESTEP, start_simulation)
     
     # Function to stop the simulation (callback of the start/stop button)
     def stop_simulation():

@@ -27,7 +27,7 @@ class Node:
     def is_occupied(self):
       return self.occupant != Occupant.EMPTY
 
-# Used to update rover's view of the environment using the real grid
+# Used to update rover's view of the environment using the real grid (acts like a chess queen)
 def scan(rover, grid):
 
   r, c = rover.r, rover.c
@@ -58,24 +58,29 @@ def scan(rover, grid):
     if grid[r][nc].occupant != Occupant.EMPTY:
       break
 
-  # Scan the grid by looking at all cells in the diagnoal direction from the rover (except current cell)
-  for i in range(1, len(grid)):
-    if r + i < len(grid) and c + i < len(grid[0]):
-      rover.update_occupant(r + i, c + i, grid[r + i][c + i].occupant)
-      if grid[r + i][c + i].occupant != Occupant.EMPTY:
-        break
-    if r + i < len(grid) and c - i >= 0:
-      rover.update_occupant(r + i, c - i, grid[r + i][c - i].occupant)
-      if grid[r + i][c - i].occupant != Occupant.EMPTY:
-        break
-    if r - i >= 0 and c + i < len(grid[0]):
-      rover.update_occupant(r - i, c + i, grid[r - i][c + i].occupant)
-      if grid[r - i][c + i].occupant != Occupant.EMPTY:
-        break
-    if r - i >= 0 and c - i >= 0:
-      rover.update_occupant(r - i, c - i, grid[r - i][c - i].occupant)
-      if grid[r - i][c - i].occupant != Occupant.EMPTY:
-        break
+  # Scan the top-left diagnoal from the rover (except current cell)
+  for i in range(1, min(r, c) + 1):
+    rover.update_occupant(r-i, c-i, grid[r-i][c-i].occupant)
+    if grid[r-i][c-i].occupant != Occupant.EMPTY:
+      break
+  
+  # Scan the top-right diagnoal from the rover (except current cell)
+  for i in range(1, min(r, len(grid[0])-1-c) + 1):
+    rover.update_occupant(r-i, c+i, grid[r-i][c+i].occupant)
+    if grid[r-i][c+i].occupant != Occupant.EMPTY:
+      break
+
+  # Scan the bottom-left diagnoal from the rover (except current cell)
+  for i in range(1, min(len(grid)-1-r, c) + 1):
+    rover.update_occupant(r+i, c-i, grid[r+i][c-i].occupant)
+    if grid[r+i][c-i].occupant != Occupant.EMPTY:
+      break
+  
+  # Scan the bottom-right diagnoal from the rover (except current cell)
+  for i in range(1, min(len(grid)-1-r, len(grid[0])-1-c) + 1):
+    rover.update_occupant(r+i, c+i, grid[r+i][c+i].occupant)
+    if grid[r+i][c+i].occupant != Occupant.EMPTY:
+      break
 
 # Manhattan distance is the sum of the horizontal and vertical distances between two points
 def manhattan_distance(start, end):
