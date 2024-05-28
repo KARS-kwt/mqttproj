@@ -1,5 +1,6 @@
 # import required packages 
 import json
+import paho.mqtt.client as paho
 import config
 from enum import Enum
 from map_pathfinder import Node, Occupant
@@ -17,7 +18,8 @@ class ArmStatus(Enum):
 
 class Rover:  
 
-    #TODO: Refactor rover variables into constructor
+    #TODO: Refactor rover private variables into constructor
+    #TODO: Add MQTT functionality to rover
 
     # Rover's team ID
     team_id = -1
@@ -66,6 +68,15 @@ class Rover:
                 print(f"{cell.occupant.value:3}", end="")
             print()
         print()
+    
+    def mqtt_publish(self):
+        client = paho.Client(paho.CallbackAPIVersion.VERSION2)
+        if client.connect("localhost", 1883, 60) != 0:
+            print("Couldn't connect to the mqtt broker")
+            #sys.exit(1)
+
+        client.publish("test_topic", "Hi, paho mqtt client works fine!", 0)
+        client.disconnect()
 
     # Convert to JSON
     def to_json(self):
@@ -76,4 +87,5 @@ class Rover:
     def from_json(json_str):
         json_dict = json.loads(json_str)
         return Rover(json_dict['r'], json_dict['c'])
+
 

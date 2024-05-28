@@ -55,10 +55,11 @@ If you have installed the broker locally on the same machine as the subscriber/p
 mosquitto -v
 ```
 
-This will run the broker as a program that will allow you to view the connections and messages being sent and received. Alternatively you can start and stop the broker as a service:
+This will run the broker as a program that will allow you to view the connections and messages being sent and received. Alternatively you can start, restart, and stop the broker as a service:
     
  ```bash
  sudo systemctl start mosquitto
+ sudo systemctl restart mosquitto
  sudo systemctl stop mosquitto
  ```
 
@@ -79,13 +80,20 @@ And add the following lines to the file to allow the broker to listen on port 18
 Note, if the broker is running on WSL, you need to expose the broker's port to the host machine on another port.
 For example, if the broker is listening on port 1883 in WSL, you can expose it to, e.g. port 5000 on the host machine by running the following command in the PowerShell terminal:
     
-```bash
-netsh advfirewall firewall add rule name="Allowing MQTT connections" dir=in action=allow protocol=TCP localport=5000
-netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5000 connectaddress=localhost connectport=1883
-```
+   ```bash
+   netsh advfirewall firewall add rule name="Allowing MQTT connections" dir=in action=allow protocol=TCP localport=5000
+   netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5000 connectaddress=localhost connectport=1883
+   ```
+
+Then you run the broker:
+    
+  ```bash
+  mosquitto -v -c /etc/mosquitto/conf.d/myconf.conf
+  ```
+
 
 #### Testing the Broker:
-To test the broker, you can run the built-in `mosquitto_pub` and `mosquitto_sub` commands from the client. For example, to publish a message to the topic `test`:
+To test that the broker is currently active and accepting connections, you can run the built-in `mosquitto_pub` and `mosquitto_sub` commands from the client. For example, to publish a message to the topic `test`:
 
 ```bash
 mosquitto_pub -t test -m "Hello, World!"
@@ -148,5 +156,12 @@ variable:
 ```bash
 unset MQTT_PWN_TESTING_ENV
 ```
->
+-->
+
+## Usage
+You can run the simulator by running the following command:
+
+```bash
+python simulator/map_simulator.py
+```
 
