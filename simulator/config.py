@@ -12,11 +12,11 @@ TIMESTEP = 1000
 # netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5000 connectaddress=localhost connectport=1883
 
 # Network Parameters
-BROKER_LOCAL_ADDRESS = "localhost"              # Client uses this if the broker is running on the same machine
+BROKER_LOCAL_ADDRESS = "localhost"              # Client uses this if broker is running on the same machine
 BROKER_PORT = 1883                              # Default MQTT port is 1883
 
-BROKER_NETWORK_ADDRESS = "192.168.1.140"        # Client uses this if the broker is running on another machine (in the same network)
-BROKER_NETWORK_PORT = 5000                      # Client uses this if the broker is running on WSL and exposed to the host machine
+BROKER_NETWORK_ADDRESS = "192.168.1.140"        # Client uses this if broker is running on another machine (same network)
+BROKER_NETWORK_PORT = 5000                      # Client uses this if broker is running on WSL and exposed to the host machine
 
 # Connection Parameters
 MSG_COUNT = 3

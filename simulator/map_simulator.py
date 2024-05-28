@@ -1,4 +1,6 @@
 from tkinter import *
+from turtle import update
+import os
 import Pmw
 import config
 import random
@@ -70,6 +72,15 @@ def set_flag_position(team_id, r, c):
     flag_tt = Pmw.Balloon(root)
     flag_tt.bind(label, f"Team {team_id} - Flag")
 
+# Update the log with a new message with timestamp
+def update_log(message, add_timestamp=True):
+    if add_timestamp:
+        t = f"[{timestamp:04d}]:  "
+    else:  
+        t = ""
+    log_text.insert(END, f"{t}{message}\n")
+    log_text.see(END)
+
 # Update the rover position on the grid
 def update_rover_position(rover, new_pos, is_start=False):
 
@@ -119,8 +130,7 @@ def move_rover(rover):
                 if cell.occupant == Occupant.FLAG:
                     flags += 1
         if flags == 2:
-            rover.print_grid()
-            log_text.insert(END, f"Team {rover.team_id} - discovered opponent's flag!\n")
+            update_log(f"Team {rover.team_id} - discovered opponent's flag!\n")
 
         # Set the goal to be the farthest unexplored cell
         max_distance = 0
@@ -141,11 +151,14 @@ def move_rover(rover):
         r, c = path[1]    
         if grid[r][c].occupant == Occupant.OBSTACLE:
             # Rover has crashed!
-            log_text.insert(END, f"Team {rover.team_id} - Rover {rover.group_id} has crashed into an obstacle\n")
+            update_log(f"Team {rover.team_id} - Rover {rover.group_id} has crashed into an obstacle\n")
         else:
            update_rover_position(rover, Node(r,c))
 
 def start_simulation():
+
+    global timestamp
+    timestamp += 1
 
     for i in range(config.NUM_TEAMS):
         for j in range(2):
@@ -186,14 +199,16 @@ if __name__ == "__main__":
     cols = config.GRID_COLS
     ch = 50                 # height of each cell in pixels
     cw = 50                  # width of each cell in pixels
+    timestamp = 0
 
     # Initialize icons
     blank = PhotoImage()
-    red_image = ImageTk.PhotoImage(Image.open("mqtt_clients/images/redrobot.png").resize((ch, cw)))
-    blue_image = ImageTk.PhotoImage(Image.open("mqtt_clients/images/bluerobot.png").resize((ch,cw)))
+    __imagelocation__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+    red_image = ImageTk.PhotoImage(Image.open(os.path.join(__imagelocation__,"images/redrobot.png")).resize((ch, cw)))
+    blue_image = ImageTk.PhotoImage(Image.open(os.path.join(__imagelocation__,"images/bluerobot.png")).resize((ch,cw)))
     rover_image = [red_image, blue_image]
-    red_flag_icon = ImageTk.PhotoImage(Image.open("mqtt_clients/images/redflag.png").resize((ch, cw)))
-    blue_flag_icon = ImageTk.PhotoImage(Image.open("mqtt_clients/images/blueflag.png").resize((ch, cw)))
+    red_flag_icon = ImageTk.PhotoImage(Image.open(os.path.join(__imagelocation__,"images/redflag.png")).resize((ch, cw)))
+    blue_flag_icon = ImageTk.PhotoImage(Image.open(os.path.join(__imagelocation__,"images/blueflag.png")).resize((ch, cw)))
     flag_icon = [red_flag_icon, blue_flag_icon]
 
     # Create the the gridboard
@@ -213,7 +228,7 @@ if __name__ == "__main__":
     # Add a textbox showing log of events on right of the grid
     log_text = Text(root, height=30, width=50, bg="black", fg="white", font=("Arial", 16))
     log_text.grid(row=0, column=cols+1, rowspan=rows, padx=50, pady=10, sticky=N+S+E+W)
-    log_text.insert(END, "Event Log:\n")
+    update_log("Welcome to the KARS Summer Camp 2024!\nEvent Log:\n", False)
 
     # Initialize team positions on grid
     rover = [[None for _ in range(2)] for _ in range(config.NUM_TEAMS)]
@@ -222,7 +237,7 @@ if __name__ == "__main__":
             rover[i][j] = Rover(i, j, i*(rows-1), j*(cols-1), 0)
             start_pos = Node(i*(rows-1), j*(cols-1))
             update_rover_position(rover[i][j], start_pos, True)
-            log_text.insert(END, f"Team {i} - Rover {j} Ready\n")
+            update_log(f"Team {i} - Rover {j} Deployed\n")
 
     # Start the main event loop
     root.mainloop()
