@@ -238,7 +238,6 @@ if __name__ == "__main__":
             start_pos = Node(i*(rows-1), j*(cols-1))
             update_rover_position(rover[i][j], start_pos, True)
             update_log(f"Team {i} - Rover {j} Deployed\n")
-            rover[i][j].mqtt_publish()
 
     # Start the main event loop
     root.mainloop()
