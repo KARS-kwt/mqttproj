@@ -12,9 +12,17 @@ class Mode(Enum):
     LOOKING_FOR_FLAG = 4
     HEADING_TO_FLAG = 5
 
+class CameraStatus(Enum):
+    ON = 1
+    OFF = 2
+
 class ArmStatus(Enum):
     RETRACTED = 1
     EXTENDED = 2
+
+class WheelStatus(Enum):
+    STOPPED = 1
+    MOVING = 2
 
 class Rover:  
     
@@ -29,8 +37,8 @@ class Rover:
         self.mqtt_conn = MQTTClientConnector(f"rover_{team_id}_{group_id}")
         
         # Initialize rover equipment status
-        self.camera_on = True 
-        self.wheels_on = True
+        self.camera_status = CameraStatus.OFF
+        self.wheel_status = WheelStatus.STOPPED
         self.arm_status = ArmStatus.RETRACTED
 
         # Initialize the rover's gridview with unknown occupants
@@ -40,11 +48,13 @@ class Rover:
         self.team_flag_in_base = True                               
         self.opp_flag_in_base =  [True for _ in range(config.NUM_TEAMS - 1)]
     
+    # Update the rover's grid view with the new occupant information
     def update_occupant(self, r, c, type):
         self.my_grid[r][c].occupant = type
         if type != Occupant.EMPTY:
             self.my_obstacles.add((r, c))
     
+    # Retrieves the set of all obstacles in the rover's grid view
     def get_all_obstacles(self):
         return self.my_obstacles
 
@@ -56,7 +66,62 @@ class Rover:
             print()
         print()
 
-    # Convert to JSON
+    # Used to update rover's view of the environment using the real grid (acts like a chess queen)
+    def scan(self, grid):
+
+        r, c = self.r, self.c
+
+        # Scan the grid by looking at all cells in the same row and/or column as the rover (cannot see beyond obstacles)
+        for nr in range(r, len(grid)): # DOWN         
+            self.update_occupant(nr, c, grid[nr][c].occupant)
+            if nr == r: # Skip the current cell
+                continue   
+            if grid[nr][c].occupant != Occupant.EMPTY:  
+                break
+        for nr in range(r, -1, -1): # UP
+            self.update_occupant(nr, c, grid[nr][c].occupant)
+            if nr == r:
+                continue   
+            if grid[nr][c].occupant != Occupant.EMPTY:  
+                break
+        for nc in range(c, len(grid[0])): # RIGHT
+            if nc == c:
+                continue 
+            self.update_occupant(r, nc, grid[r][nc].occupant)
+            if grid[r][nc].occupant != Occupant.EMPTY:
+                break
+        for nc in range(c, -1, -1): # LEFT
+            if nc == c:
+                continue 
+            self.update_occupant(r, nc, grid[r][nc].occupant)
+            if grid[r][nc].occupant != Occupant.EMPTY:
+                break
+
+        # Scan the top-left diagnoal from the rover (except current cell)
+        for i in range(1, min(r, c) + 1):
+            self.update_occupant(r-i, c-i, grid[r-i][c-i].occupant)
+            if grid[r-i][c-i].occupant != Occupant.EMPTY:
+                break
+        
+        # Scan the top-right diagnoal from the rover (except current cell)
+        for i in range(1, min(r, len(grid[0])-1-c) + 1):
+            self.update_occupant(r-i, c+i, grid[r-i][c+i].occupant)
+            if grid[r-i][c+i].occupant != Occupant.EMPTY:
+                break
+
+        # Scan the bottom-left diagnoal from the rover (except current cell)
+        for i in range(1, min(len(grid)-1-r, c) + 1):
+            self.update_occupant(r+i, c-i, grid[r+i][c-i].occupant)
+            if grid[r+i][c-i].occupant != Occupant.EMPTY:
+                break
+        
+        # Scan the bottom-right diagnoal from the rover (except current cell)
+        for i in range(1, min(len(grid)-1-r, len(grid[0])-1-c) + 1):
+            self.update_occupant(r+i, c+i, grid[r+i][c+i].occupant)
+            if grid[r+i][c+i].occupant != Occupant.EMPTY:
+                break
+
+    # Convert to JSON (for MQTT messages)
     def to_json(self):
         return json.dumps(self.__dict__)
 

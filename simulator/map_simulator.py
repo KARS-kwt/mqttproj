@@ -1,3 +1,4 @@
+from email.policy import default
 from tkinter import *
 from turtle import update
 import os
@@ -5,25 +6,37 @@ import Pmw
 import config
 import random
 from PIL import Image,ImageTk
-from map_pathfinder import Node, Occupant, a_star, scan, manhattan_distance
+from map_pathfinder import Node, Occupant, a_star, manhattan_distance
 from rover import Rover, Mode
 
-def draw_grid():
-
-    # Initialize a grid of Label objects for empty cells
-    for i in range(rows):
-        for j in range(cols):
-            label = Label(root, height=ch, width=cw, relief=RAISED, borderwidth=2, image=blank)
-            label.grid(row=i, column=j)
-    
-    # Add static objects to the grid
+def init_grid():
+    grid = [[Node(r, c) for c in range(cols)] for r in range(rows)]
     for row in grid:
         for cell in row:
-            if cell.occupant == Occupant.OBSTACLE:
-                label = Label(root, height=ch, width=cw, relief=RAISED, borderwidth=2, image=blank)
-                label.grid(row=cell.r, column=cell.c)
-                label.config(height=ch, width=cw, bg="brown")
+            label = Label(root, height=ch, width=cw, relief=RAISED, borderwidth=2, image=blank)
+            label.grid(row=cell.r, column=cell.c)
+            cell.occupant = Occupant.EMPTY
+    return grid
 
+def draw_grid():
+    
+    # Populate the map with the groundtruth occupants using grid
+    for row in grid:
+        for cell in row:
+            label = root.grid_slaves(cell.r, cell.c)[0]
+            if cell.occupant == Occupant.EMPTY:
+                label.config(bg=default_color, image=blank)
+            if cell.occupant == Occupant.OBSTACLE:
+                label.config(bg="brown", image=blank)  
+            if cell.occupant == Occupant.REDFLAG:
+                label.config(bg=default_color, image=red_flag_icon)
+            if cell.occupant == Occupant.BLUEFLAG:
+                label.config(bg=default_color, image=blue_flag_icon)
+            if cell.occupant == Occupant.ROVER:
+                label.config(bg=default_color, image=rover_image[cell.occupant_ref.team_id])
+
+def create_start_button():
+            
     # Create a button to start the simulation
     start_button = Button(root, text="Start Simulation", bg="green", fg="white", font=("Arial", 20), command=start_simulation)
     start_button.grid(row=rows, column=0, columnspan=cols)
@@ -63,10 +76,9 @@ def generate_obstacles(num_rand_obstacles=10):
 # Set the flag position on the grid
 def set_flag_position(team_id, r, c):
 
-    label = Label(root, height=ch, width=cw, relief=RAISED, borderwidth=2, image=blank)
-    label.grid(row=r, column=c)
-    label.config(image=flag_icon[team_id], height=ch, width=cw)
-    grid[r][c].occupant = Occupant.FLAG
+    grid[r][c].occupant = Occupant.REDFLAG if team_id == 0 else Occupant.BLUEFLAG
+    label = root.grid_slaves(r, c)[0]
+    label.config(image=flag_icon[team_id])
     
     # Add tooltip for flag
     flag_tt = Pmw.Balloon(root)
@@ -86,8 +98,8 @@ def update_rover_position(rover, new_pos, is_start=False):
 
     # Clear the previous position if not the starting position
     if not is_start:
-        label = Label(root, height=ch, width=cw, relief=RAISED, borderwidth=2, image=blank)
-        label.grid(row=rover.r, column=rover.c)
+        label = root.grid_slaves(rover.r, rover.c)[0]
+        label.config(image=blank)
         grid[rover.r][rover.c].occupant = Occupant.EMPTY
 
     # Set the new position
@@ -95,42 +107,69 @@ def update_rover_position(rover, new_pos, is_start=False):
     rover.c = new_pos.c
     rover.my_grid[rover.r][rover.c].visited = True
     grid[rover.r][rover.c].occupant = Occupant.ROVER
+    grid[rover.r][rover.c].occupant_ref = rover
 
-    # Update the grid with the new position
-    label = Label(root, height=ch, width=cw, relief=RAISED, borderwidth=2, image=blank)
-    label.grid(row=rover.r, column=rover.c)
-    label.config(image=rover_image[rover.team_id], height=ch, width=cw)
+    # Update the rover's label
+    label = root.grid_slaves(rover.r, rover.c)[0]
+    label.config(image=rover_image[rover.team_id])
+    
+    # Bind mouse hover rover event (does not work with tooltip below)
+    #label.bind("<Enter>", show_rover_view)
+    #label.bind("<Leave>", hide_rover_view)
     
     # Add tooltip for rover
     rover_tt = Pmw.Balloon(root)
     rover_tt.bind(label, f"Team {rover.team_id} - Rover {rover.group_id}")
+
+def show_rover_view(event):
+    r = event.widget.grid_info()["row"]
+    c = event.widget.grid_info()["column"]
+    rover = grid[r][c].occupant_ref
+
+    rover_view = rover.my_grid
+    for row in rover_view:
+        for cell in row:
+            color = default_color
+            if cell.occupant == Occupant.EMPTY:
+                color = "white"
+            elif cell.occupant == Occupant.OBSTACLE:
+                color = "brown"
+            elif cell.occupant == Occupant.REDFLAG:
+                color = "red"
+            elif cell.occupant == Occupant.BLUEFLAG:
+                color = "blue"
+            elif cell.occupant == Occupant.ROVER:
+                color = "yellow"
+            label = root.grid_slaves(cell.r, cell.c)[0]
+            label.config(bg=color)
+
+def hide_rover_view(event):
+    draw_grid()
 
 # Move rover towards a specified cell using A* algorithm
 def move_rover(rover):
     
     start = Node(rover.r, rover.c)
 
-    # Assuming the rover knows the location of the flag
-    if rover.mode == Mode.HEADING_TO_FLAG:
-        goal = Node((1-rover.team_id) * (rows-1), int(cols / 2)) 
-        path = a_star(rows, cols, start, goal, obstacles)
-
     # Scan the environment for an unexplored area
     if rover.mode == Mode.EXPLORING:
         
-        scan(rover, grid)
+        rover.scan(grid)
         my_grid = rover.my_grid
-        #rover.print_grid()
 
-        # Check number of grids with discovered flags
+        # Check if found opponent's flag
         # TODO: There has to be a better way to do this
-        flags = 0
+        found_flag = False
         for row in my_grid:
             for cell in row:
-                if cell.occupant == Occupant.FLAG:
-                    flags += 1
-        if flags == 2:
-            update_log(f"Team {rover.team_id} - discovered opponent's flag!\n")
+                if cell.occupant == Occupant.BLUEFLAG and rover.team_id == 0:
+                    found_flag = True
+                if cell.occupant == Occupant.REDFLAG and rover.team_id == 1:
+                    found_flag = True
+        if found_flag:
+            update_log(f"Team {rover.team_id} - Rover {rover.group_id} has found the opponent's flag\n")
+            rover.mode = Mode.HEADING_TO_FLAG
+            return
 
         # Set the goal to be the farthest unexplored cell
         max_distance = 0
@@ -143,8 +182,12 @@ def move_rover(rover):
                         max_distance = distance
                         goal = cell
 
-        # FInd a path to that frontier
+        # Find a path to that frontier
         path = a_star(rows, cols, start, goal, rover.get_all_obstacles())
+    
+    if rover.mode == Mode.HEADING_TO_FLAG:
+        goal = Node((1-rover.team_id) * (rows-1), int(cols / 2)) 
+        path = a_star(rows, cols, start, goal, obstacles)
     
     # Update the rover position by moving one step along the path
     if path and len(path) > 1:
@@ -159,10 +202,6 @@ def start_simulation():
 
     global timestamp
     timestamp += 1
-
-    for i in range(config.NUM_TEAMS):
-        for j in range(2):
-            rover[i][j].mode = Mode.EXPLORING
 
     # Move the rovers synchronously towards their destination
     move_rover(rover[0][0])
@@ -200,6 +239,7 @@ if __name__ == "__main__":
     ch = 50                 # height of each cell in pixels
     cw = 50                  # width of each cell in pixels
     timestamp = 0
+    default_color = root.cget("bg")
 
     # Initialize icons
     blank = PhotoImage()
@@ -211,13 +251,11 @@ if __name__ == "__main__":
     blue_flag_icon = ImageTk.PhotoImage(Image.open(os.path.join(__imagelocation__,"images/blueflag.png")).resize((ch, cw)))
     flag_icon = [red_flag_icon, blue_flag_icon]
 
-    # Create the the gridboard
-    grid = [[Node(r, c) for c in range(cols)] for r in range(rows)]
-    for row in grid:
-        for cell in row:
-            cell.occupant = Occupant.EMPTY
+    # Initialize the the gridboard
+    grid = init_grid()
     obstacles = generate_obstacles(config.NUM_OBSTACLES)
     draw_grid()
+    create_start_button()
     
     # Initialize flag positions on grid (half way between the groups)
     red_flag = Node(0, int(cols / 2)) 
