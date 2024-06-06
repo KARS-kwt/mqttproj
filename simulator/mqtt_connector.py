@@ -32,7 +32,7 @@ class MQTTClientConnector:
                                       client_id, 
                                       transport=trans, 
                                       protocol=paho.MQTTv311, 
-                                      clean_session=True)
+                                      clean_session=True)  
         if version == 5:
             self.client = paho.Client(paho.CallbackAPIVersion.VERSION2, 
                                       client_id, 
@@ -125,10 +125,7 @@ def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code.is_failure:
         print(f"Failed to connect: {reason_code}")
     else:
-        # we should always subscribe from on_connect callback to be sure
-        # our subscribed is persisted across reconnections.
-        print(f"Connected with result code {reason_code}")
-        client.subscribe("test_topic")
+        print(f"{client._client_id} connected with result code {reason_code}")
 
 def on_subscribe(client, userdata, mid, reason_code_list, properties):
     """
@@ -188,5 +185,5 @@ def on_publish(client, userdata, mid, reason_code, properties):
         reason_code (paho.mqtt.packettypes.ReasonCode): The reason code for the publish (MQTTv5 only)
         properties (paho.mqtt.properties.Properties): The properties associated with the publish (MQTTv5 only)
     """
-    print(f"Published message with mid {mid}")    
+    #print(f"Published message with mid {mid}")    
     

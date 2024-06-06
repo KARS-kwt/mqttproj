@@ -1,5 +1,6 @@
 from email.policy import default
 from tkinter import *
+from tracemalloc import start
 from turtle import update
 import os
 import Pmw
@@ -45,11 +46,21 @@ def create_start_button():
             
     # Create a button to start the simulation
     start_button = Button(root, text="Start Simulation", bg="green", fg="white", font=("Arial", 20), command=start_simulation)
-    start_button.grid(row=rows, column=0, columnspan=cols)
+    start_button.grid(row=rows, column=0, columnspan=int(cols/2))
 
     # Add tooltip for start button
     start_button_tt = Pmw.Balloon(root) 
     start_button_tt.bind(start_button,'Click here to start the simulation')
+
+def create_reset_button():
+            
+    # Create a button to reset the simulation
+    reset_button = Button(root, text="Reset", bg="blue", fg="white", font=("Arial", 20), command=initialize_simulation)
+    reset_button.grid(row=rows, column=int(cols/2), columnspan=int(cols/2))
+
+    # Add tooltip for start button
+    reset_button_tt = Pmw.Balloon(root) 
+    reset_button_tt.bind(reset_button,'Click here to reset the simulation')
 
 def generate_obstacles(num_rand_obstacles=10):
 
@@ -163,7 +174,6 @@ def toggle_rover_view(event):
         grid_view = False
 
 # Move rover towards a specified cell using A* algorithm
-#TODO: move rover-related pathfinding to be in the rover module
 def move_rover(rover):
     
     start = Node(rover.r, rover.c)
@@ -173,24 +183,17 @@ def move_rover(rover):
     if rover.mode == Mode.EXPLORING:
         
         rover.scan(grid)
-        my_grid = rover.my_grid
 
         # Check if found opponent's flag
-        # TODO: There has to be a better way to do this
-        found_flag = False
-        for row in my_grid:
-            for cell in row:
-                if cell.occupant == Occupant.BLUEFLAG and rover.team_id == 0:
-                    found_flag = True
-                if cell.occupant == Occupant.REDFLAG and rover.team_id == 1:
-                    found_flag = True
-        if found_flag:
+        if rover.opp_flag_loc:
+            r, c = rover.opp_flag_loc.r, rover.opp_flag_loc.c
             update_log(f"Team {rover.team_id} - Rover {rover.group_id} has found the opponent's flag\n")
+            rover.mqtt_conn.publish(f"team{rover.team_id}/group{rover.group_id}/flag", f"found at location ({r}, {c})")
             rover.mode = Mode.HEADING_TO_FLAG
             return
-
-        # Go to the farthest unvisited cell
-        path = rover.explore()
+        else:
+            # Go to the farthest unvisited cell
+            path = rover.explore()
     
     if rover.mode == Mode.HEADING_TO_FLAG:
         goal = Node((1-rover.team_id) * (rows-1), int(cols / 2)) 
@@ -220,10 +223,10 @@ def start_simulation():
     timestamp += 1
 
     # Move the rovers synchronously towards their destination
-    move_rover(rover[0][0])
-    move_rover(rover[0][1])
-    move_rover(rover[1][0])
-    move_rover(rover[1][1])
+    move_rover(rovers[0][0])
+    move_rover(rovers[0][1])
+    move_rover(rovers[1][0])
+    move_rover(rovers[1][1])
 
     # Run the simulation again after 1 timestep
     simulate = root.after(config.TIMESTEP, start_simulation)
@@ -237,11 +240,43 @@ def start_simulation():
 
     # Get the start button from root
     start_button = root.grid_slaves(rows, 0)[0]
-    start_button.config(text="Stop Simulation", bg="red", command=stop_simulation)
+    start_button.config(text="Pause Simulation", bg="red", command=stop_simulation)
     start_button_tt = Pmw.Balloon(root) 
-    start_button_tt.bind(start_button,'Click here to stop the simulation')
+    start_button_tt.bind(start_button,'Click here to pause the simulation')
 
-# For testing purposes
+def initialize_simulation():
+    
+    global timestamp, grid, obstacles, rovers, log_text
+    timestamp = 0
+
+    # Reset the grid
+    grid = init_grid()
+    obstacles = generate_obstacles(config.NUM_OBSTACLES)
+    draw_grid()
+    
+    # Add a textbox showing log of events on right of the grid
+    log_text = Text(root, height=30, width=50, bg="black", fg="white", font=("Arial", 16))
+    log_text.grid(row=0, column=cols, rowspan=rows+1, padx=50, pady=10, sticky=N+S+E+W)
+    update_log("Welcome to the KARS Summer Camp 2024!\nEvent Log:\n", False)
+
+    # Reset the flag positions
+    set_flag_position(0, 0, int(cols / 2))
+    set_flag_position(1, rows-1, int(cols / 2))
+    
+    # Reset the rovers
+    rovers = [[None for _ in range(2)] for _ in range(config.NUM_TEAMS)]
+    for i in range(config.NUM_TEAMS):
+        for j in range(config.NUM_GROUPS):
+            rovers[i][j] = Rover(i, j, i*(rows-1), j*(cols-1), 0)
+            rovers[i][j].scan(grid)
+            start_pos = Node(i*(rows-1), j*(cols-1))
+            update_rover_position(rovers[i][j], start_pos, True)
+            update_log(f"Team {i} - Rover {j} Deployed\n")
+
+
+'''
+    Main function to start the simulation
+'''
 if __name__ == "__main__":
 
     # Create the main window
@@ -268,32 +303,10 @@ if __name__ == "__main__":
     blue_flag_icon = ImageTk.PhotoImage(Image.open(os.path.join(__imagelocation__,"images/blueflag.png")).resize((ch, cw)))
     flag_icon = [red_flag_icon, blue_flag_icon]
 
-    # Initialize the the gridboard
-    grid = init_grid()
-    obstacles = generate_obstacles(config.NUM_OBSTACLES)
-    draw_grid()
+    # Initialize the simulation
+    initialize_simulation()    
     create_start_button()
-    
-    # Initialize flag positions on grid (half way between the groups)
-    red_flag = Node(0, int(cols / 2)) 
-    blue_flag = Node(rows-1, int(cols / 2))
-    set_flag_position(0, 0, int(cols / 2))
-    set_flag_position(1, rows-1, int(cols / 2))
-
-    # Add a textbox showing log of events on right of the grid
-    log_text = Text(root, height=30, width=50, bg="black", fg="white", font=("Arial", 16))
-    log_text.grid(row=0, column=cols, rowspan=rows+1, padx=50, pady=10, sticky=N+S+E+W)
-    update_log("Welcome to the KARS Summer Camp 2024!\nEvent Log:\n", False)
-
-    # Initialize team positions on grid
-    rover = [[None for _ in range(2)] for _ in range(config.NUM_TEAMS)]
-    for i in range(config.NUM_TEAMS):
-        for j in range(2):
-            rover[i][j] = Rover(i, j, i*(rows-1), j*(cols-1), 0)
-            rover[i][j].scan(grid)
-            start_pos = Node(i*(rows-1), j*(cols-1))
-            update_rover_position(rover[i][j], start_pos, True)
-            update_log(f"Team {i} - Rover {j} Deployed\n")
+    create_reset_button()
 
     # Start the main event loop
     root.mainloop()
