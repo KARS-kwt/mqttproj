@@ -13,9 +13,15 @@ def init_grid():
     grid = [[Node(r, c) for c in range(cols)] for r in range(rows)]
     for row in grid:
         for cell in row:
+            root.rowconfigure(cell.r, weight=1)
+            root.columnconfigure(cell.c, weight=1)
             label = Label(root, height=ch, width=cw, relief=RAISED, borderwidth=2, image=blank)
-            label.grid(row=cell.r, column=cell.c)
+            label.grid(row=cell.r, column=cell.c, sticky=N+S+E+W)
             cell.occupant = Occupant.EMPTY
+    
+    root.rowconfigure(rows, weight=1)
+    root.columnconfigure(cols, weight=1)        
+    
     return grid
 
 def draw_grid():
@@ -101,6 +107,8 @@ def update_rover_position(rover, new_pos, is_start=False):
         label = root.grid_slaves(rover.r, rover.c)[0]
         label.config(image=blank)
         grid[rover.r][rover.c].occupant = Occupant.EMPTY
+        label.unbind("<Enter>")
+        label.unbind("<Leave>")
 
     # Set the new position
     rover.r = new_pos.r
@@ -113,43 +121,53 @@ def update_rover_position(rover, new_pos, is_start=False):
     label = root.grid_slaves(rover.r, rover.c)[0]
     label.config(image=rover_image[rover.team_id])
     
-    # Bind mouse hover rover event (does not work with tooltip below)
-    #label.bind("<Enter>", show_rover_view)
-    #label.bind("<Leave>", hide_rover_view)
+    # Bind mouse click to toggle rover grid view
+    label.bind("<Button-1>", toggle_rover_view)
     
     # Add tooltip for rover
     rover_tt = Pmw.Balloon(root)
     rover_tt.bind(label, f"Team {rover.team_id} - Rover {rover.group_id}")
 
-def show_rover_view(event):
-    r = event.widget.grid_info()["row"]
-    c = event.widget.grid_info()["column"]
-    rover = grid[r][c].occupant_ref
+def toggle_rover_view(event):
+    
+    global grid_view
+    if not grid_view:
+        r = event.widget.grid_info()["row"]
+        c = event.widget.grid_info()["column"]
+        rover = grid[r][c].occupant_ref
 
-    rover_view = rover.my_grid
-    for row in rover_view:
-        for cell in row:
-            color = default_color
-            if cell.occupant == Occupant.EMPTY:
-                color = "white"
-            elif cell.occupant == Occupant.OBSTACLE:
-                color = "brown"
-            elif cell.occupant == Occupant.REDFLAG:
-                color = "red"
-            elif cell.occupant == Occupant.BLUEFLAG:
-                color = "blue"
-            elif cell.occupant == Occupant.ROVER:
-                color = "yellow"
-            label = root.grid_slaves(cell.r, cell.c)[0]
-            label.config(bg=color)
-
-def hide_rover_view(event):
-    draw_grid()
+        rover_view = rover.my_grid
+        for row in rover_view:
+            for cell in row:
+                color = default_color
+                if cell.occupant == Occupant.EMPTY:
+                    color = "white"
+                elif cell.occupant == Occupant.OBSTACLE:
+                    color = "brown"
+                elif cell.occupant == Occupant.REDFLAG:
+                    color = "red"
+                elif cell.occupant == Occupant.BLUEFLAG:
+                    color = "blue"
+                elif cell.occupant == Occupant.ROVER:
+                    color = "yellow"
+                
+                if cell.visited:
+                    color = "lightgreen"
+                    
+                label = root.grid_slaves(cell.r, cell.c)[0]
+                label.config(bg=color)
+                
+        grid_view = True
+    else:
+        draw_grid()
+        grid_view = False
 
 # Move rover towards a specified cell using A* algorithm
+#TODO: move rover-related pathfinding to be in the rover module
 def move_rover(rover):
     
     start = Node(rover.r, rover.c)
+    path = None
 
     # Scan the environment for an unexplored area
     if rover.mode == Mode.EXPLORING:
@@ -171,19 +189,8 @@ def move_rover(rover):
             rover.mode = Mode.HEADING_TO_FLAG
             return
 
-        # Set the goal to be the farthest unexplored cell
-        max_distance = 0
-        goal = None
-        for row in my_grid:
-            for cell in row:
-                if not cell.visited and cell.occupant == Occupant.UNKNOWN:
-                    distance = manhattan_distance(start, cell)
-                    if distance > max_distance:
-                        max_distance = distance
-                        goal = cell
-
-        # Find a path to that frontier
-        path = a_star(rows, cols, start, goal, rover.get_all_obstacles())
+        # Go to the farthest unvisited cell
+        path = rover.explore()
     
     if rover.mode == Mode.HEADING_TO_FLAG:
         goal = Node((1-rover.team_id) * (rows-1), int(cols / 2)) 
@@ -192,11 +199,20 @@ def move_rover(rover):
     # Update the rover position by moving one step along the path
     if path and len(path) > 1:
         r, c = path[1]    
-        if grid[r][c].occupant == Occupant.OBSTACLE:
+        if grid[r][c].occupant == Occupant.REDFLAG and rover.team_id == 1:
+            # Rover has captured the flag!
+            update_log(f"Team {rover.team_id} - Rover {rover.group_id} has captured the flag\n")
+            rover.mode = Mode.RETURNING_TO_BASE
+        if grid[r][c].occupant == Occupant.BLUEFLAG and rover.team_id == 0:
+            # Rover has captured the flag!
+            update_log(f"Team {rover.team_id} - Rover {rover.group_id} has captured the flag\n")
+            rover.mode = Mode.RETURNING_TO_BASE
+        if grid[r][c].occupant != Occupant.EMPTY:
             # Rover has crashed!
             update_log(f"Team {rover.team_id} - Rover {rover.group_id} has crashed into an obstacle\n")
         else:
-           update_rover_position(rover, Node(r,c))
+            update_rover_position(rover, Node(r,c))
+            rover.scan(grid)
 
 def start_simulation():
 
@@ -236,10 +252,11 @@ if __name__ == "__main__":
     # Initialize grid parameters
     rows = config.GRID_ROWS
     cols = config.GRID_COLS
-    ch = 50                 # height of each cell in pixels
-    cw = 50                  # width of each cell in pixels
+    ch = 50                     # height of each cell in pixels
+    cw = 50                     # width of each cell in pixels
     timestamp = 0
     default_color = root.cget("bg")
+    grid_view = False
 
     # Initialize icons
     blank = PhotoImage()
@@ -265,7 +282,7 @@ if __name__ == "__main__":
 
     # Add a textbox showing log of events on right of the grid
     log_text = Text(root, height=30, width=50, bg="black", fg="white", font=("Arial", 16))
-    log_text.grid(row=0, column=cols+1, rowspan=rows, padx=50, pady=10, sticky=N+S+E+W)
+    log_text.grid(row=0, column=cols, rowspan=rows+1, padx=50, pady=10, sticky=N+S+E+W)
     update_log("Welcome to the KARS Summer Camp 2024!\nEvent Log:\n", False)
 
     # Initialize team positions on grid
@@ -273,6 +290,7 @@ if __name__ == "__main__":
     for i in range(config.NUM_TEAMS):
         for j in range(2):
             rover[i][j] = Rover(i, j, i*(rows-1), j*(cols-1), 0)
+            rover[i][j].scan(grid)
             start_pos = Node(i*(rows-1), j*(cols-1))
             update_rover_position(rover[i][j], start_pos, True)
             update_log(f"Team {i} - Rover {j} Deployed\n")

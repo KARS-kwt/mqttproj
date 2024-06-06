@@ -3,7 +3,7 @@ NUM_TEAMS = 2
 GRID_ROWS = 20
 GRID_COLS = 20
 NUM_OBSTACLES = 40
-TIMESTEP = 1000
+TIMESTEP = 1000                                 # Time interval between each move in milliseconds
 
 # Note, if the broker is running on WSL, you need to expose the broker's port to the host machine on another port
 # For example, if the broker is listening on port 1883 in WSL, you can expose it to port 5000 on the host machine
