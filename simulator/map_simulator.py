@@ -1,13 +1,10 @@
-from email.policy import default
 from tkinter import *
-from tracemalloc import start
-from turtle import update
 import os
 import Pmw
 import config
 import random
 from PIL import Image,ImageTk
-from map_pathfinder import Node, Occupant, a_star, manhattan_distance
+from map_pathfinder import Node, Occupant, a_star
 from rover import Rover, Mode
 
 def init_grid():
@@ -197,6 +194,7 @@ def move_rover(rover):
     
     if rover.mode == Mode.HEADING_TO_FLAG:
         goal = Node((1-rover.team_id) * (rows-1), int(cols / 2)) 
+        #TODO: move this to rover
         path = a_star(rows, cols, start, goal, obstacles)
     
     # Update the rover position by moving one step along the path
