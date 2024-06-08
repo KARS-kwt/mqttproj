@@ -51,10 +51,12 @@ class Rover:
         self.my_obstacles = set()
         self.team_flag_in_base = True                               
         self.opp_flag_loc = None
+        self.button1_loc = None
+        self.button2_loc = None
     
     # Start the MQTT connection and subscribe to other groups' topics (in the same team)
     def start_connection(self):
-        self.mqtt_conn = MQTTClientConnector(f"rover_{self.team_id}_{self.group_id}")
+        self.mqtt_conn = MQTTClientConnector(f"rover_{self.team_id}_{self.group_id}", parse_message)
         for team in range(config.NUM_TEAMS):
             for group in range(config.NUM_GROUPS):
                 if team == self.team_id and group != self.group_id:
@@ -70,9 +72,21 @@ class Rover:
     
     def update_flag_found(self, r, c):
         if self.my_grid[r][c].occupant == Occupant.BLUEFLAG and self.team_id == 0:
-            self.opp_flag_loc = Node(r, c)
+            self.opp_flag_loc = self.my_grid[r][c]
         if self.my_grid[r][c].occupant == Occupant.REDFLAG and self.team_id == 1:
-            self.opp_flag_loc = Node(r, c)
+            self.opp_flag_loc = self.my_grid[r][c]
+    
+    def update_button_found(self, r, c):
+        if (
+            (self.my_grid[r][c].occupant == Occupant.REDBUTTON and self.team_id == 0) 
+            or  
+            (self.my_grid[r][c].occupant == Occupant.BLUEBUTTON and self.team_id == 1)
+        ):
+            if self.button1_loc == None:
+                self.button1_loc = self.my_grid[r][c]
+            else: 
+                if self.button2_loc == None:
+                    self.button2_loc = self.my_grid[r][c]         
     
     # Retrieves the set of all obstacles in the rover's grid view
     def get_all_obstacles(self):
@@ -102,6 +116,7 @@ class Rover:
         for nr in range(r, len(grid)): # DOWN         
             self.update_occupant(nr, c, grid[nr][c].occupant, grid[nr][c].occupant_ref)
             self.update_flag_found(nr, c)
+            self.update_button_found(nr, c)
             if nr == r: # Skip the current cell
                 continue   
             if grid[nr][c].occupant != Occupant.EMPTY:  
@@ -109,6 +124,7 @@ class Rover:
         for nr in range(r, -1, -1): # UP
             self.update_occupant(nr, c, grid[nr][c].occupant, grid[nr][c].occupant_ref)
             self.update_flag_found(nr, c)
+            self.update_button_found(nr, c)
             if nr == r:
                 continue   
             if grid[nr][c].occupant != Occupant.EMPTY:  
@@ -118,6 +134,7 @@ class Rover:
                 continue 
             self.update_occupant(r, nc, grid[r][nc].occupant, grid[r][nc].occupant_ref)
             self.update_flag_found(r, nc)
+            self.update_button_found(r, nc)
             if grid[r][nc].occupant != Occupant.EMPTY:
                 break
         for nc in range(c, -1, -1): # LEFT
@@ -125,6 +142,7 @@ class Rover:
                 continue 
             self.update_occupant(r, nc, grid[r][nc].occupant, grid[r][nc].occupant_ref)
             self.update_flag_found(r, nc)
+            self.update_button_found(r, nc)
             if grid[r][nc].occupant != Occupant.EMPTY:
                 break
 
@@ -132,6 +150,7 @@ class Rover:
         for i in range(1, min(r, c) + 1):
             self.update_occupant(r-i, c-i, grid[r-i][c-i].occupant, grid[r-i][c-i].occupant_ref)
             self.update_flag_found(r-i, c-i)
+            self.update_button_found(r-i, c-i)
             if grid[r-i][c-i].occupant != Occupant.EMPTY:
                 break
         
@@ -139,6 +158,7 @@ class Rover:
         for i in range(1, min(r, len(grid[0])-1-c) + 1):
             self.update_occupant(r-i, c+i, grid[r-i][c+i].occupant, grid[r-i][c+i].occupant_ref)
             self.update_flag_found(r-i, c+i)
+            self.update_button_found(r-i, c+i)
             if grid[r-i][c+i].occupant != Occupant.EMPTY:
                 break
 
@@ -146,6 +166,7 @@ class Rover:
         for i in range(1, min(len(grid)-1-r, c) + 1):
             self.update_occupant(r+i, c-i, grid[r+i][c-i].occupant, grid[r+i][c-i].occupant_ref)
             self.update_flag_found(r+i, c-i)
+            self.update_button_found(r+i, c-i)
             if grid[r+i][c-i].occupant != Occupant.EMPTY:
                 break
         
@@ -153,6 +174,7 @@ class Rover:
         for i in range(1, min(len(grid)-1-r, len(grid[0])-1-c) + 1):
             self.update_occupant(r+i, c+i, grid[r+i][c+i].occupant, grid[r+i][c+i].occupant_ref)
             self.update_flag_found(r+i, c+i)
+            self.update_button_found(r+i, c+i)
             if grid[r+i][c+i].occupant != Occupant.EMPTY:
                 break
     
@@ -188,5 +210,17 @@ class Rover:
     def from_json(json_str):
         json_dict = json.loads(json_str)
         return Rover(json_dict['r'], json_dict['c'])
+
+def parse_message(client, userdata, message):
+    """
+    The default callback called when a message is received.
+
+    Args:
+        client (paho.mqtt.client.Client): The MQTT client instance.
+        userdata (Any): The user data associated with the client.
+        message (paho.mqtt.client.MQTTMessage): The received message.
+    """
+    userdata.append(message.payload)
+    print(f"Received message '{str(message.payload)}' on topic '{message.topic}' with QoS {message.qos}")
 
 

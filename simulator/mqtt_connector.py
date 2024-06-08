@@ -11,12 +11,13 @@ class MQTTClientConnector:
 
     Args:
         client_id (str): The client ID for the MQTT client.
+        message_handler (Callable): The message handler to call when a message is received.
         version (int, optional): The MQTT protocol version. Defaults to 3.
         use_tls (bool, optional): Whether to use TLS for secure communication. Defaults to False.
         trans (str, optional): The transport protocol to use. Defaults to "tcp" (port 1883). Can be "websockets" to run on port 80/443
     """
 
-    def __init__(self, client_id, version=3, use_tls=False, trans="tcp"):
+    def __init__(self, client_id, message_handler = None, version=3, use_tls=False, trans="tcp"):
         """
         Initializes the MQTTClientConnector.
 
@@ -51,7 +52,10 @@ class MQTTClientConnector:
 
         # Set the callbacks
         self.client.on_connect = on_connect
-        self.client.on_message = on_message
+        if message_handler is not None:
+            self.client.on_message = message_handler                # Custom message handler
+        else:
+            self.client.on_message = on_message                     # Default message handler
         self.client.on_subscribe = on_subscribe
         self.client.on_unsubscribe = on_unsubscribe
         self.client.on_publish = on_publish
@@ -164,7 +168,7 @@ def on_unsubscribe(client, userdata, mid, reason_code_list, properties):
 
 def on_message(client, userdata, message):
     """
-    The callback called when a message is received.
+    The default callback called when a message is received.
 
     Args:
         client (paho.mqtt.client.Client): The MQTT client instance.

@@ -9,7 +9,8 @@ class Occupant(Enum):
     REDFLAG = 2
     BLUEFLAG = 3
     ROVER = 4
-    BUTTON = 5
+    REDBUTTON = 5
+    BLUEBUTTON = 6
 
 class Node:
     def __init__(self, r, c):

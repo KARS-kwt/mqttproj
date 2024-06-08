@@ -38,6 +38,10 @@ def draw_grid():
                 label.config(bg=default_color, image=blue_flag_icon)
             if cell.occupant == Occupant.ROVER:
                 label.config(bg=default_color, image=rover_image[cell.occupant_ref.team_id])
+            if cell.occupant == Occupant.REDBUTTON:
+                label.config(bg="red", image=blank)
+            if cell.occupant == Occupant.BLUEBUTTON:
+                label.config(bg="blue", image=blank)
 
 def create_start_button():
             
@@ -75,17 +79,38 @@ def generate_obstacles(num_rand_obstacles=10):
     obstacles.update({(rows-3, i) for i in range(rightedge, cols)})
 
     # Generate random obstacles between the bases
-    for _ in range(num_rand_obstacles):
+    obs_added = 0
+    while obs_added < num_rand_obstacles:
         r = random.randint(3, rows-3)
         c = random.randint(0, cols-1)
         if (r, c) not in obstacles:
+            obs_added += 1
             obstacles.add((r, c))
     
-    # Add obstacles to the grid
+    # Set the obstacles on the grid
     for obstacle in obstacles:
         grid[obstacle[0]][obstacle[1]].occupant = Occupant.OBSTACLE
     
     return obstacles
+
+# Generate buttons for each team
+def generate_buttons(buttons_per_team):
+    
+    buttons = set()
+    
+    buttons_added = 0
+    while buttons_added < buttons_per_team * config.NUM_TEAMS:
+        r = random.randint(3, rows-3)
+        c = random.randint(0, cols-1)
+        if grid[r][c].occupant == Occupant.EMPTY:
+            if buttons_added % 2 == 0:
+                grid[r][c].occupant = Occupant.BLUEBUTTON
+            else:            
+                grid[r][c].occupant = Occupant.REDBUTTON
+            buttons_added += 1
+            buttons.add((r, c))
+            
+    return buttons   
 
 # Set the flag position on the grid
 def set_flag_position(team_id, r, c):
@@ -179,7 +204,17 @@ def move_rover(rover):
     # Scan the environment for an unexplored area
     if rover.mode == Mode.EXPLORING:
         
+        # TODO: This should be replaced by vSLAM or some other monocular vision odometry algorithm
+        # Right now it naively assumes a panoramic (360-degree) FOV
         rover.scan(grid)
+        
+        # Check if found button
+        # if rover.button1_loc:
+        #     r, c = rover.button1_loc.r, rover.button1_loc.c
+        #     update_log(f"Team {rover.team_id} - Rover {rover.group_id} has found Button 1\n")
+        #     rover.mqtt_conn.publish(f"team{rover.team_id}/group{rover.group_id}/button", f"found at location ({r}, {c})")
+        #     rover.mode = Mode.HEADING_TO_BUTTON
+        #     return
 
         # Check if found opponent's flag
         if rover.opp_flag_loc:
@@ -188,9 +223,9 @@ def move_rover(rover):
             rover.mqtt_conn.publish(f"team{rover.team_id}/group{rover.group_id}/flag", f"found at location ({r}, {c})")
             rover.mode = Mode.HEADING_TO_FLAG
             return
-        else:
-            # Go to the farthest unvisited cell
-            path = rover.explore()
+        
+        # Go to the farthest unvisited cell
+        path = rover.explore()
     
     if rover.mode == Mode.HEADING_TO_FLAG:
         goal = Node((1-rover.team_id) * (rows-1), int(cols / 2)) 
@@ -223,8 +258,8 @@ def start_simulation():
     # Move the rovers synchronously towards their destination
     move_rover(rovers[0][0])
     move_rover(rovers[0][1])
-    move_rover(rovers[1][0])
-    move_rover(rovers[1][1])
+    #move_rover(rovers[1][0])
+    #move_rover(rovers[1][1])
 
     # Run the simulation again after 1 timestep
     simulate = root.after(config.TIMESTEP, start_simulation)
@@ -244,12 +279,13 @@ def start_simulation():
 
 def initialize_simulation():
     
-    global timestamp, grid, obstacles, rovers, log_text
+    global timestamp, grid, buttons, obstacles, rovers, log_text
     timestamp = 0
 
     # Reset the grid
     grid = init_grid()
     obstacles = generate_obstacles(config.NUM_OBSTACLES)
+    buttons = generate_buttons(2)
     draw_grid()
     
     # Add a textbox showing log of events on right of the grid
@@ -262,9 +298,10 @@ def initialize_simulation():
     set_flag_position(1, rows-1, int(cols / 2))
     
     # Reset the rovers
-    rovers = [[None for _ in range(2)] for _ in range(config.NUM_TEAMS)]
     for i in range(config.NUM_TEAMS):
         for j in range(config.NUM_GROUPS):
+            if rovers[i][j]:
+                rovers[i][j].mqtt_conn.disconnect()
             rovers[i][j] = Rover(i, j, i*(rows-1), j*(cols-1), 0)
             rovers[i][j].scan(grid)
             start_pos = Node(i*(rows-1), j*(cols-1))
@@ -302,6 +339,7 @@ if __name__ == "__main__":
     flag_icon = [red_flag_icon, blue_flag_icon]
 
     # Initialize the simulation
+    rovers = [[None for _ in range(2)] for _ in range(config.NUM_TEAMS)]
     initialize_simulation()    
     create_start_button()
     create_reset_button()
