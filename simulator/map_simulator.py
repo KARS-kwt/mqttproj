@@ -222,10 +222,9 @@ def move_rover(rover):
             update_log(f"Team {rover.team_id} - Rover {rover.group_id} has found the opponent's flag\n")
             rover.mqtt_conn.publish(f"team{rover.team_id}/group{rover.group_id}/flag", f"found at location ({r}, {c})")
             rover.mode = Mode.HEADING_TO_FLAG
-            return
-        
-        # Go to the farthest unvisited cell
-        path = rover.explore()
+        else:
+            # Go to the farthest unvisited cell
+            path = rover.explore()
     
     if rover.mode == Mode.HEADING_TO_FLAG:
         goal = Node((1-rover.team_id) * (rows-1), int(cols / 2)) 
@@ -239,10 +238,12 @@ def move_rover(rover):
             # Rover has captured the flag!
             update_log(f"Team {rover.team_id} - Rover {rover.group_id} has captured the flag\n")
             rover.mode = Mode.RETURNING_TO_BASE
+            return
         if grid[r][c].occupant == Occupant.BLUEFLAG and rover.team_id == 0:
             # Rover has captured the flag!
             update_log(f"Team {rover.team_id} - Rover {rover.group_id} has captured the flag\n")
             rover.mode = Mode.RETURNING_TO_BASE
+            return
         if grid[r][c].occupant != Occupant.EMPTY:
             # Rover has crashed!
             update_log(f"Team {rover.team_id} - Rover {rover.group_id} has crashed into an obstacle\n")
@@ -258,8 +259,8 @@ def start_simulation():
     # Move the rovers synchronously towards their destination
     move_rover(rovers[0][0])
     move_rover(rovers[0][1])
-    #move_rover(rovers[1][0])
-    #move_rover(rovers[1][1])
+    move_rover(rovers[1][0])
+    move_rover(rovers[1][1])
 
     # Run the simulation again after 1 timestep
     simulate = root.after(config.TIMESTEP, start_simulation)

@@ -15,7 +15,7 @@ TIMESTEP = 1000                                 # Time interval between each mov
 # Network Parameters
 BROKER_LOCAL_ADDRESS = "localhost"              # Client uses this if broker is running on the same machine
 BROKER_PORT = 1883                              # Default MQTT port is 1883
-BROKER_NETWORK_ADDRESS = "192.168.1.140"        # Client uses this if broker is running on another machine (same network)
+BROKER_NETWORK_ADDRESS = "192.168.1.147"        # Client uses this if broker is running on another machine (same network)
 BROKER_WSL_PORT = 5000                          # Client uses this if broker is running on WSL and exposed to the host machine
 BROKER_SECURE_PORT = 8883                       # Default MQTT secure port is 8883 (over TCP)
 BROKER_TLS_PORT = 443                           # Default MQTT secure port is 443 (over Websockets)
