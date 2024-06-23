@@ -1,10 +1,13 @@
+import atexit
 from tkinter import *
 import os
+import multiprocessing
+import uvicorn
 import Pmw
 import config
 import random
 from PIL import Image,ImageTk
-from map_pathfinder import Node, Occupant, a_star
+from nav_unit import Node, Occupant, a_star
 from rover import Rover, Mode
 
 def init_grid():
@@ -195,7 +198,7 @@ def toggle_rover_view(event):
         draw_grid()
         grid_view = False
 
-# Move rover towards a specified cell using A* algorithm
+# Move rover one step towards goal
 def move_rover(rover):
     
     start = Node(rover.r, rover.c)
@@ -309,13 +312,12 @@ def initialize_simulation():
             update_rover_position(rovers[i][j], start_pos, True)
             update_log(f"Team {i} - Rover {j} Deployed\n")
 
+###########################################################################################
+#TODO: Need to create thread for fastapi and thread for mqtt from each client
 
-'''
-    Main function to start the simulation
-'''
 if __name__ == "__main__":
 
-    # Create the main window
+    # Initialize the main window
     root = Tk()
     Pmw.initialise(root)
     root.title("KARS Summer Camp 2024 - Map Simulator")
@@ -344,6 +346,11 @@ if __name__ == "__main__":
     initialize_simulation()    
     create_start_button()
     create_reset_button()
+
+    # Start the uvicorn server on a different child process (tkinter is not thread-safe)
+    p = multiprocessing.Process(target=uvicorn.run, kwargs={'app':'api:app'})
+    p.start()
+    atexit.register(p.kill)
 
     # Start the main event loop
     root.mainloop()

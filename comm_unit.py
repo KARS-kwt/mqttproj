@@ -1,5 +1,6 @@
 
 import config
+import json
 import paho.mqtt.client as paho
 from paho.mqtt.properties import Properties
 from paho.mqtt.packettypes import PacketTypes 
@@ -40,7 +41,7 @@ class MQTTClientConnector:
                                       transport=trans, 
                                       protocol=paho.MQTTv5)
         
-        # Client Authentification and TLS setup
+        # Client Authentication and TLS setup
         if use_tls:
             self.client.username_pw_set(config.USERNAME, config.PASSWORD)
             # If certfile and keyfile are not None then they will be used as client information for TLS based
@@ -60,7 +61,7 @@ class MQTTClientConnector:
         self.client.on_unsubscribe = on_unsubscribe
         self.client.on_publish = on_publish
         
-        # Initialize user data to store received messages in the callbacks
+        # Initialize user data that will passed around in the callbacks
         self.client.user_data_set([])
  
         if version == 3:
@@ -77,8 +78,7 @@ class MQTTClientConnector:
                                 clean_start=paho.MQTT_CLEAN_START_FIRST_ONLY,
                                 properties=properties)
         
-        # Asynchronous listening for messages on a different thread to avoid blocking the main thread
-        # Thread will loop forever until disconnect is called
+        # Start asynchronous listening for messages on a different thread to avoid blocking the main thread
         self.client.loop_start()
 
     def subscribe(self, topic):
@@ -111,8 +111,7 @@ class MQTTClientConnector:
         Disconnects the MQTT client. This will also stop the loop started in the constructor.
         """
         self.client.disconnect()
-        self.client.loop_stop()     # Not really needed, but good practice
-    
+        self.client.loop_stop()     # Not really needed, but good practice    
 
 # MQTT Client Callbacks
 def on_connect(client, userdata, flags, reason_code, properties):
@@ -166,7 +165,7 @@ def on_unsubscribe(client, userdata, mid, reason_code_list, properties):
     else:
         print(f"Broker replied with failure: {reason_code_list[0]}")
 
-def on_message(client, userdata, message):
+def on_message(client, userdata, message: paho.MQTTMessage):
     """
     The default callback called when a message is received.
 
@@ -176,7 +175,7 @@ def on_message(client, userdata, message):
         message (paho.mqtt.client.MQTTMessage): The received message.
     """
     userdata.append(message.payload)
-    print(f"Received message '{str(message.payload)}' on topic '{message.topic}' with QoS {message.qos}")
+    print(f"Received message '{message.payload.decode()}' on topic '{message.topic}' with QoS {message.qos}")
 
 def on_publish(client, userdata, mid, reason_code, properties):
     """
@@ -189,5 +188,13 @@ def on_publish(client, userdata, mid, reason_code, properties):
         reason_code (paho.mqtt.packettypes.ReasonCode): The reason code for the publish (MQTTv5 only)
         properties (paho.mqtt.properties.Properties): The properties associated with the publish (MQTTv5 only)
     """
-    #print(f"Published message with mid {mid}")    
+    #print(f"Published message with mid {mid}") 
+
+# Helper function to check if a string is a valid JSON
+def is_json(myjson):
+  try:
+    json.loads(myjson)
+  except ValueError as e:
+    return False
+  return True   
     

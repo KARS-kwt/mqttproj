@@ -1,10 +1,10 @@
 # import required packages 
 import json
-from tracemalloc import start
+import requests
 import config
-from mqtt_connector import MQTTClientConnector
+from comm_unit import MQTTClientConnector
 from enum import Enum
-from map_pathfinder import Node, Occupant, manhattan_distance, a_star
+from nav_unit import Node, Occupant, manhattan_distance, a_star
 
 class Mode(Enum):
     EXPLORING = 1
@@ -203,13 +203,22 @@ class Rover:
 
     # Convert to JSON (for MQTT messages)
     def to_json(self):
-        return json.dumps(self.__dict__)
+        seralizableDict = {}
+        seralizableDict['team_id'] = self.team_id
+        seralizableDict['group_id'] = self.group_id
+        seralizableDict['r'] = self.r
+        seralizableDict['c'] = self.c
+        seralizableDict['orientation'] = self.orientation
+        return json.dumps(seralizableDict)
 
     # Convert from JSON
     @staticmethod
     def from_json(json_str):
         json_dict = json.loads(json_str)
-        return Rover(json_dict['r'], json_dict['c'])
+        teammember = Rover(json_dict['r'], json_dict['c'])
+        teammember.arm_status
+        teammember.camera_status
+        teammember.wheel_status
 
 def parse_message(client, userdata, message):
     """
@@ -222,5 +231,28 @@ def parse_message(client, userdata, message):
     """
     userdata.append(message.payload)
     print(f"Received message '{str(message.payload)}' on topic '{message.topic}' with QoS {message.qos}")
+
+def get_posts():
+    # Define the API endpoint URL
+    url = 'https://jsonplaceholder.typicode.com/posts'
+
+    try:
+        # Make a GET request to the API endpoint using requests.get()
+        response = requests.get(url)
+
+        # Check if the request was successful (status code 200)
+        if response.status_code == 200:
+            posts = response.json()
+            return posts
+        else:
+            print('Error:', response.status_code)
+            return None
+    except requests.exceptions.RequestException as e:
+        # Handle any network-related errors or exceptions
+        print('Error:', e)
+        return None
+    finally:
+        # Close the response
+        response.close()
 
 

@@ -1,6 +1,12 @@
-import config
+import sys
+import os
 import time
 import paho.mqtt.client as mqtt
+
+child_dir = os.path.dirname(__file__)
+parent_dir = os.path.abspath(os.path.join(child_dir, '..'))
+sys.path.append(parent_dir)
+import config
 
 def on_publish(client, userdata, mid, reason_code, properties):
     # reason_code and properties will only be present in MQTTv5. It's always unset in MQTTv3
@@ -24,7 +30,7 @@ mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 mqttc.on_publish = on_publish
 
 mqttc.user_data_set(unacked_publish)
-mqttc.connect(config.BROKER_ADDRESS)
+mqttc.connect(config.BROKER_NETWORK_ADDRESS)
 mqttc.loop_start()
 
 # Our application produce some messages

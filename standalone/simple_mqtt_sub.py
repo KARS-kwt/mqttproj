@@ -1,14 +1,18 @@
 import sys
 import os
+import json 
 import paho.mqtt.client as paho
+from rover import Rover
 
 child_dir = os.path.dirname(__file__)
 parent_dir = os.path.abspath(os.path.join(child_dir, '..'))
 sys.path.append(parent_dir)
 import config as conf
 
-def message_handling(client, userdata, msg):
-    print(f"{msg.topic}: {msg.payload.decode()}")
+def message_handling(client, userdata, msg:paho.MQTTMessage):
+    payload = Rover.from_json(msg.payload.decode())
+    print(f"{msg.topic}: {payload}")            
+    
 
 client = paho.Client(paho.CallbackAPIVersion.VERSION2)
 client.on_message = message_handling
