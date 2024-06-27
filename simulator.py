@@ -1,8 +1,10 @@
 import atexit
 from tkinter import *
 import os
+import threading
 import multiprocessing
 import uvicorn
+import socket
 import Pmw
 import config
 import random
@@ -160,6 +162,9 @@ def update_rover_position(rover, new_pos, is_start=False):
     # Bind mouse click to toggle rover grid view
     label.bind("<Button-1>", toggle_rover_view)
     
+    if human_players:
+        rover.socket.sendall(rover.to_json().encode())
+    
     # Add tooltip for rover
     rover_tt = Pmw.Balloon(root)
     rover_tt.bind(label, f"Team {rover.team_id} - Rover {rover.group_id}")
@@ -223,7 +228,7 @@ def move_rover(rover):
         if rover.opp_flag_loc:
             r, c = rover.opp_flag_loc.r, rover.opp_flag_loc.c
             update_log(f"Team {rover.team_id} - Rover {rover.group_id} has found the opponent's flag\n")
-            rover.mqtt_conn.publish(f"team{rover.team_id}/group{rover.group_id}/flag", f"found at location ({r}, {c})")
+            #rover.mqtt_conn.publish(f"team{rover.team_id}/group{rover.group_id}/flag", f"found at location ({r}, {c})")
             rover.mode = Mode.HEADING_TO_FLAG
         else:
             # Go to the farthest unvisited cell
@@ -260,10 +265,15 @@ def start_simulation():
     timestamp += 1
 
     # Move the rovers synchronously towards their destination
-    move_rover(rovers[0][0])
-    move_rover(rovers[0][1])
-    move_rover(rovers[1][0])
-    move_rover(rovers[1][1])
+    for i in range(config.NUM_TEAMS):
+        for j in range(config.NUM_GROUPS):
+            if rovers[i][j] is not None:
+                move_rover(rovers[i][j])
+                
+    #move_rover(rovers[0][0])
+    #move_rover(rovers[0][1])
+    #move_rover(rovers[1][0])
+    #move_rover(rovers[1][1])
 
     # Run the simulation again after 1 timestep
     simulate = root.after(config.TIMESTEP, start_simulation)
@@ -302,18 +312,43 @@ def initialize_simulation():
     set_flag_position(1, rows-1, int(cols / 2))
     
     # Reset the rovers
-    for i in range(config.NUM_TEAMS):
-        for j in range(config.NUM_GROUPS):
-            if rovers[i][j]:
-                rovers[i][j].mqtt_conn.disconnect()
-            rovers[i][j] = Rover(i, j, i*(rows-1), j*(cols-1), 0)
-            rovers[i][j].scan(grid)
-            start_pos = Node(i*(rows-1), j*(cols-1))
-            update_rover_position(rovers[i][j], start_pos, True)
-            update_log(f"Team {i} - Rover {j} Deployed\n")
+    if not human_players:
+        for i in range(config.NUM_TEAMS):
+            for j in range(config.NUM_GROUPS):
+                if rovers[i][j]:
+                    rovers[i][j].mqtt_conn.disconnect()
+                rovers[i][j] = Rover(i, j, i*(rows-1), j*(cols-1), 0)
+                rovers[i][j].start_connection()
+                rovers[i][j].scan(grid)
+                start_pos = Node(i*(rows-1), j*(cols-1))
+                update_rover_position(rovers[i][j], start_pos, True)
+                update_log(f"Team {i} - Rover {j} Deployed\n")
+    else:
+        socket_server = start_socket_server()
+        for i in range(config.NUM_TEAMS):
+            for j in range(config.NUM_GROUPS):
+                threading.Thread(target=human_player, args=(socket_server, i, j)).start()
 
-###########################################################################################
-#TODO: Need to create thread for fastapi and thread for mqtt from each client
+def start_socket_server():
+    host = socket.gethostname() # 192.168.0.2
+    port = 7777  
+
+    server_socket = socket.socket()
+    server_socket.bind((host, port)) 
+
+    # configure how many client the server can listen simultaneously
+    server_socket.listen(2)
+    return server_socket
+
+def human_player(server_socket, i, j):
+    conn, address = server_socket.accept()
+    #print("Rover connected from: " + str(address))
+    rovers[i][j] = Rover(i, j, i*(rows-1), j*(cols-1), 0)
+    rovers[i][j].socket, rovers[i][j].address = conn, address
+    rovers[i][j].scan(grid)
+    start_pos = Node(i*(rows-1), j*(cols-1))
+    update_rover_position(rovers[i][j], start_pos, True)
+    update_log(f"Team {i} - Rover {j} Connected from " + str(address) + "\n")
 
 if __name__ == "__main__":
 
@@ -342,15 +377,16 @@ if __name__ == "__main__":
     flag_icon = [red_flag_icon, blue_flag_icon]
 
     # Initialize the simulation
+    human_players = True
     rovers = [[None for _ in range(2)] for _ in range(config.NUM_TEAMS)]
     initialize_simulation()    
     create_start_button()
     create_reset_button()
 
     # Start the uvicorn server on a different child process (tkinter is not thread-safe)
-    p = multiprocessing.Process(target=uvicorn.run, kwargs={'app':'api:app'})
-    p.start()
-    atexit.register(p.kill)
+    #p = multiprocessing.Process(target=uvicorn.run, kwargs={'app':'api:app'})
+    #p.start()
+    #atexit.register(p.kill)
 
     # Start the main event loop
     root.mainloop()

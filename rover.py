@@ -37,8 +37,9 @@ class Rover:
         self.orientation = orientation
         self.mode = Mode.EXPLORING  
         
-        # Initialize the MQTT client connector and subscribe to the team's other rovers 
-        self.start_connection()
+        # Socke info (for human players only)
+        self.socket = None
+        self.address = None
         
         # Initialize rover equipment status
         self.camera_status = CameraStatus.OFF
