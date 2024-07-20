@@ -37,7 +37,7 @@ class Rover:
         self.orientation = orientation
         self.mode = Mode.EXPLORING  
         
-        # Socke info (for human players only)
+        # Socket info (for human players only)
         self.socket = None
         self.address = None
         
@@ -216,10 +216,14 @@ class Rover:
     @staticmethod
     def from_json(json_str):
         json_dict = json.loads(json_str)
-        teammember = Rover(json_dict['r'], json_dict['c'])
-        teammember.arm_status
-        teammember.camera_status
-        teammember.wheel_status
+        teammember = Rover(
+            json_dict['team_id'],
+            json_dict['group_id'],
+            json_dict['r'], 
+            json_dict['c'],
+            json_dict['orientation'],
+        )
+        return teammember
 
 def parse_message(client, userdata, message):
     """

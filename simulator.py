@@ -228,7 +228,7 @@ def move_rover(rover):
         if rover.opp_flag_loc:
             r, c = rover.opp_flag_loc.r, rover.opp_flag_loc.c
             update_log(f"Team {rover.team_id} - Rover {rover.group_id} has found the opponent's flag\n")
-            #rover.mqtt_conn.publish(f"team{rover.team_id}/group{rover.group_id}/flag", f"found at location ({r}, {c})")
+            rover.mqtt_conn.publish(f"team{rover.team_id}/group{rover.group_id}/flag", f"found at location ({r}, {c})")
             rover.mode = Mode.HEADING_TO_FLAG
         else:
             # Go to the farthest unvisited cell

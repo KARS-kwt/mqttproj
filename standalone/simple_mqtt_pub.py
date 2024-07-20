@@ -12,9 +12,11 @@ from rover import *
 
 client = paho.Client(paho.CallbackAPIVersion.VERSION2)
 
-if client.connect(conf.BROKER_LOCAL_ADDRESS, 1883, 60) != 0:
+if client.connect(conf.BROKER_NETWORK_ADDRESS, 1883, 60) != 0:
     print("Couldn't connect to the mqtt broker")
     sys.exit(1)
+    
+client.loop_start()
 
 my_rover = Rover(0, 1, 4, 5, 100)
 
@@ -25,7 +27,8 @@ hash_object.update(key.encode())
 hash_value = hash_object.hexdigest()
 print(hash_value)
 
-msg = client.publish("test_topic", my_rover.to_json(), 1)
+msg = client.publish("team1/group1", my_rover.to_json(), 1)
 msg.wait_for_publish()
 
+client.loop_stop()
 client.disconnect()

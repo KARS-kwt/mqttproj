@@ -19,9 +19,6 @@ def main():
     #threading.Thread(target=pathfinder).start()
     threading.Thread(target=pathfinder_simulated).start()
     
-    # Start MQTT client thread
-    #start_mqtt_connection()
-    
     # Start publishing rover state every 1 second
     #threading.Thread(target=publish_data).start()
     
@@ -44,7 +41,7 @@ def main():
 def start_mqtt_connection():
     client = paho.Client(paho.CallbackAPIVersion.VERSION2)
     client.on_message = parse_message
-    client.subscribe("team0/group1")
+    client.subscribe("team0/group1", 1)
     client.connect("localhost", 1883, 60)   
     client.loop_start()
     return client
