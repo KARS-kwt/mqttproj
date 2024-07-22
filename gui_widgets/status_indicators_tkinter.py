@@ -1,13 +1,11 @@
-from ast import arg
 import tkinter as tk
-import time
 import sys
 import json
 import paho.mqtt.client as paho
 
 def publish_message(signal):
     msg = client.publish("team1/group1", json.dumps(signal), 1)
-    msg.wait_for_publish()
+    msg.wait_for_publish(1)
 
 def message_handling(client, userdata, msg:paho.MQTTMessage):
     payload = json.loads(msg.payload)
@@ -76,9 +74,9 @@ if __name__ == "__main__":
     
     try:
         client.loop_start()   
-        client.subscribe("team1/group1", 1)       
+        client.subscribe("team1/group1", 1)    
         print("Press CTRL+C to exit...") 
     except Exception as e:
-        print(e) 
+        print(e)     
 
     root.mainloop()
